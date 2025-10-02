@@ -4,13 +4,14 @@ import { AccountsService } from './accounts.service';
 import { ConflictException, BadRequestException } from '@nestjs/common';
 import { AccountDTO } from './dto/account.dto';
 import { CalculateAccountTotalBillDTO } from './dto/calculate-account-total-bill.dto';
+import { CurrenciesService } from '../currencies/currencies.service';
 
 describe('AccountsService', () => {
     let service: AccountsService;
 
     beforeEach(async () => {
         const module: TestingModule = await Test.createTestingModule({
-            providers: [AccountsService],
+            providers: [AccountsService, CurrenciesService],
         }).compile();
 
         service = module.get<AccountsService>(AccountsService);
@@ -65,8 +66,24 @@ describe('AccountsService', () => {
                 billingPeriodStart: '2025-01-01',
                 transactionCount: 20,
             };
+            const bill = {
+                billTotal: 0,
+                baseFee: 0,
+                transactionFee: 0,
+                discountApplied: 0,
+                periods: [] as {
+                    baseFee: number;
+                    transactionFee: number;
+                    discountAppliedBaseFee: number;
+                    discountAppliedTransactionFee: number;
+                    discountDaysClaimed: number;
+                    activeDaysInMonth: number;
+                    daysInMonth: number;
+                    period: string;
+                }[],
+            };
             const result = service.calculateTotalBill(dto);
-            expect(result).toEqual(dto);
+            expect(result).toEqual(bill);
         });
 
         it('should throw BadRequestException if account does not exist', () => {

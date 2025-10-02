@@ -45,7 +45,8 @@ export class AccountsService {
             periods: [] as {
                 baseFee: number;
                 transactionFee: number;
-                discountApplied: number;
+                discountAppliedBaseFee: number;
+                discountAppliedTransactionFee: number;
                 discountDaysClaimed: number;
                 activeDaysInMonth: number;
                 daysInMonth: number;
@@ -88,15 +89,7 @@ export class AccountsService {
         console.log(iteratedDate);
         let iteratingMonth = iteratedDate.getMonth();
         let iteratingYear = iteratedDate.getFullYear();
-        let currentBill = {
-            baseFee: 0,
-            transactionFee: 0,
-            discountApplied: 0,
-            discountDaysClaimed: 0,
-            activeDaysInMonth: 0,
-            daysInMonth: 0,
-            period: this.createPeriodString(iteratingYear, iteratingMonth),
-        };
+        let currentBill;
         // iterate days until billingPeriodEnd
         while (iteratedDate < billingPeriodEnd) {
             // if new month / year
@@ -104,19 +97,6 @@ export class AccountsService {
                 iteratedDate.getFullYear() > iteratingYear ||
                 iteratedDate.getMonth() != iteratingMonth
             ) {
-                // currentBill.baseFee =
-                //     (activeDaysInMonth / daysInMonth) * currency!.monthlyFeeGbp;
-                // currentBill.discountDaysClaimed = discountDaysClaimed;
-                // currentBill.transactionFee = 0;
-                // currentBill.discountApplied =
-                //     ((discountDaysClaimed / activeDaysInMonth) *
-                //         currentBill.baseFee *
-                //         account!.discountRate) /
-                //     100;
-                // currentBill.activeDaysInMonth = activeDaysInMonth;
-                // currentBill.daysInMonth = daysInMonth;
-                // console.log(`daysInMonth : ${daysInMonth}`);
-                // console.log(`activeDaysInMonth : ${activeDaysInMonth}`);
                 currentBill = this.getCurrentBill(
                     iteratingYear,
                     iteratingMonth,
@@ -133,21 +113,7 @@ export class AccountsService {
                 daysInMonth = this.getDaysInMonth(iteratedDate);
                 activeDaysInMonth = 0;
                 discountDaysClaimed = 0;
-                currentBill = {
-                    baseFee: 0,
-                    transactionFee: 0,
-                    discountApplied: 0,
-                    discountDaysClaimed: 0,
-                    activeDaysInMonth: 0,
-                    daysInMonth: 0,
-                    period: this.createPeriodString(
-                        iteratingYear,
-                        iteratingMonth,
-                    ),
-                };
             }
-            // if billingPeriodStart < creationDate + discountDays then apply discount to monthlyFeeGbp and transaction fee
-            //          calculate monthlyFee and transactionFees for each portion of month up to earliest of month end or billingPeriodEnd
             iteratedDate.setDate(iteratedDate.getDate() + 1);
             activeDaysInMonth++;
             if (discountDaysRemaining > 0) {
@@ -155,7 +121,34 @@ export class AccountsService {
             }
             discountDaysRemaining--;
         }
+        currentBill = this.getCurrentBill(
+            iteratingYear,
+            iteratingMonth,
+            activeDaysInMonth,
+            daysInMonth,
+            currency as CreateCurrencyDTO,
+            discountDaysClaimed,
+            account as AccountDTO,
+        );
         billDTO.periods.push(currentBill);
+        // now get total number of days that the bill covers
+        const totalBillDays = this.getTotalBillDays(billDTO);
+        // gives x transactions per day
+        const transactionsPerDay =
+            calculateAccountTotalBillDTO.transactionCount / totalBillDays;
+        // can now calculate transactions per period
+
+        billDTO.periods.forEach((element) => {
+            const object = this.addTransactionFees(
+                transactionsPerDay,
+                activeDaysInMonth,
+                account as AccountDTO,
+                element.discountDaysClaimed,
+            );
+            element.transactionFee = object.transactionFee;
+            element.discountAppliedTransactionFee = object.discountApplied;
+        });
+        // now sum the bill
         return billDTO;
     }
 
@@ -202,7 +195,7 @@ export class AccountsService {
             (activeDaysInMonth / daysInMonth) * currency.monthlyFeeGbp;
         currentBill.discountDaysClaimed = discountDaysClaimed;
         currentBill.transactionFee = 0;
-        currentBill.discountApplied =
+        currentBill.discountAppliedBaseFee =
             ((discountDaysClaimed / activeDaysInMonth) *
                 currentBill.baseFee *
                 account!.discountRate) /
@@ -216,11 +209,46 @@ export class AccountsService {
         return {
             baseFee: 0,
             transactionFee: 0,
-            discountApplied: 0,
+            discountAppliedBaseFee: 0,
+            discountAppliedTransactionFee: 0,
             discountDaysClaimed: 0,
             activeDaysInMonth: 0,
             daysInMonth: 0,
             period: this.createPeriodString(iteratingYear, iteratingMonth),
         };
+    }
+
+    private getTotalBillDays(bill): number {
+        return bill.periods.reduce((sum, p) => sum + p.activeDaysInMonth, 0);
+    }
+
+    private addTransactionFees(
+        transactionsPerDay: number,
+        activeDaysInMonth: number,
+        account: AccountDTO,
+        discountDaysClaimed: number,
+    ) {
+        const transactionsThisPeriod = transactionsPerDay * activeDaysInMonth;
+        let transactionFee = 0;
+        let discountApplied = 0;
+        // did we exceed the threshold this period?
+        if (account!.transactionThreshold < transactionsThisPeriod) {
+            transactionFee =
+                perTransactionFee *
+                (transactionsThisPeriod - account!.transactionThreshold);
+            const exceededThresholdOnDay = Math.ceil(
+                account!.transactionThreshold / transactionsPerDay,
+            );
+            // did we exceed the threshold before discountDays elapsed
+            if (discountDaysClaimed > exceededThresholdOnDay) {
+                // apply discount to the fees for the discount days that exceed the exceededThresholdOnDay
+                discountApplied =
+                    ((discountDaysClaimed / activeDaysInMonth) *
+                        transactionFee *
+                        account!.discountRate) /
+                    100;
+            }
+        }
+        return { transactionFee, discountApplied };
     }
 }
