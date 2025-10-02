@@ -2,7 +2,9 @@ import { Body, Controller, Param, Post } from '@nestjs/common';
 
 import { AccountsService } from './accounts.service';
 import { CalculateAccountTotalBillDTO } from './dto/calculate-account-total-bill.dto';
+import { AccountDTO } from './dto/account.dto';
 import { CreateAccountDTO } from './dto/create-account.dto';
+import { CalculateAccountTotalBillWithoutIdDTO } from './dto/calculate-account-total-bill-without-id.dto';
 
 @Controller('accounts')
 export class AccountsController {
@@ -11,19 +13,20 @@ export class AccountsController {
     @Post()
     create(
         @Body()
-        newAccount: CreateAccountDTO,
+        newAccountDTOwithoutCreationDate: CreateAccountDTO,
     ) {
-        return this.accountsService.create(newAccount);
+        const newAccountDTO: AccountDTO = {
+            creationDate: new Date(),
+            ...newAccountDTOwithoutCreationDate,
+        };
+        return this.accountsService.create(newAccountDTO);
     }
 
     @Post(':accountId/bill')
     createBill(
         @Param('accountId') accountId: string,
         @Body()
-        calculateAccountTotalBillDTOwithoutAccountId: Omit<
-            CalculateAccountTotalBillDTO,
-            'accountId'
-        >,
+        calculateAccountTotalBillDTOwithoutAccountId: CalculateAccountTotalBillWithoutIdDTO,
     ) {
         const calculateAccountTotalBillDTO: CalculateAccountTotalBillDTO = {
             accountId,

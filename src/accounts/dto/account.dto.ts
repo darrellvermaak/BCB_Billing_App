@@ -14,7 +14,7 @@ import { Injectable } from '@nestjs/common';
 import { CurrenciesService } from '../../currencies/currencies.service';
 import { CurrencyExists } from '../validators/currency-exists.decorator';
 
-export class CreateAccountDTO {
+export class AccountDTO {
     @IsString()
     accountId: string;
 
@@ -35,4 +35,7 @@ export class CreateAccountDTO {
     @IsNumber()
     @Min(0)
     discountRate: number;
+
+    @IsDate()
+    creationDate: Date;
 }

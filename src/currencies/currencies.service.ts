@@ -22,4 +22,8 @@ export class CurrenciesService {
         );
         return !!existingCurrency;
     }
+
+    getCurrency(currency: string): CreateCurrencyDTO | undefined {
+        return this.currencies.find((cur) => cur.currency === currency);
+    }
 }

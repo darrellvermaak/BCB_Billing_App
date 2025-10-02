@@ -20,7 +20,6 @@ export class CurrencyExistsConstraint implements ValidatorConstraintInterface {
                 'CurrenciesService is not injected. Make sure to call useContainer(app.select(AppModule), { fallbackOnErrors: true }) in your main.ts',
             );
         }
-        console.log(`currency being validated : ${value}`);
         return this.currenciesService.currencyExists(value);
     }
 
