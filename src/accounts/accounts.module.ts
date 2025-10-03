@@ -5,6 +5,7 @@ import { AccountsController } from './accounts.controller';
 import { CurrencyExistsConstraint } from './validators/currency-exists.decorator';
 import { CurrenciesModule } from '../currencies/currencies.module';
 import { CurrenciesService } from '../currencies/currencies.service';
+import { GenerateBill } from './generate-bill';
 
 @Module({
     imports: [CurrenciesModule],
